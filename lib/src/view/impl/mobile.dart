@@ -1,16 +1,12 @@
-import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:webviewx/src/utils/utils.dart';
-
-import 'package:webview_flutter/platform_interface.dart' as wf_pi;
+import 'package:iamport_webview_flutter/iamport_webview_flutter.dart' as iawf;
 import 'package:webview_flutter/webview_flutter.dart' as wf;
-
-import 'package:webviewx/src/view/interface.dart' as view_interface;
-import 'package:webviewx/src/controller/interface.dart' as ctrl_interface;
 import 'package:webviewx/src/controller/impl/mobile.dart';
+import 'package:webviewx/src/controller/interface.dart' as ctrl_interface;
+import 'package:webviewx/src/utils/utils.dart';
+import 'package:webviewx/src/view/interface.dart' as view_interface;
 
 /// Mobile implementation
 class WebViewX extends StatefulWidget implements view_interface.WebViewX {
@@ -108,7 +104,7 @@ class WebViewX extends StatefulWidget implements view_interface.WebViewX {
 
   /// Constructor
   const WebViewX({
-    Key? key,
+    super.key,
     this.initialContent = 'about:blank',
     this.initialSourceType = SourceType.url,
     this.userAgent,
@@ -127,14 +123,14 @@ class WebViewX extends StatefulWidget implements view_interface.WebViewX {
     this.onWebResourceError,
     this.webSpecificParams = const WebSpecificParams(),
     this.mobileSpecificParams = const MobileSpecificParams(),
-  }) : super(key: key);
+  });
 
   @override
-  _WebViewXState createState() => _WebViewXState();
+  WebViewXState createState() => WebViewXState();
 }
 
-class _WebViewXState extends State<WebViewX> {
-  late wf.WebViewController originalWebViewController;
+class WebViewXState extends State<WebViewX> {
+  late iawf.WebViewController originalWebViewController;
   late WebViewXController webViewXController;
 
   late bool _ignoreAllGestures;
@@ -145,50 +141,56 @@ class _WebViewXState extends State<WebViewX> {
 
     if (Platform.isAndroid &&
         widget.mobileSpecificParams.androidEnableHybridComposition) {
-      wf.WebView.platform = wf.SurfaceAndroidWebView();
+      iawf.WebView.platform = iawf.SurfaceAndroidWebView();
     }
 
     _ignoreAllGestures = widget.ignoreAllGestures;
     webViewXController = _createWebViewXController();
   }
 
+  void mockMethod(WebResourceError error) {}
+
+  iawf.WebResourceErrorCallback? onWebResourceError;
+  iawf.NavigationDelegate? navigationDelegate;
+
   @override
   Widget build(BuildContext context) {
     final javascriptMode = widget.javascriptMode == JavascriptMode.unrestricted
-        ? wf.JavascriptMode.unrestricted
-        : wf.JavascriptMode.disabled;
+        ? iawf.JavascriptMode.unrestricted
+        : iawf.JavascriptMode.disabled;
 
     final initialMediaPlaybackPolicy = widget.initialMediaPlaybackPolicy ==
             AutoMediaPlaybackPolicy.alwaysAllow
-        ? wf.AutoMediaPlaybackPolicy.always_allow
-        : wf.AutoMediaPlaybackPolicy.require_user_action_for_all_media_types;
+        ? iawf.AutoMediaPlaybackPolicy.always_allow
+        : iawf.AutoMediaPlaybackPolicy.require_user_action_for_all_media_types;
 
-    void onWebResourceError(wf_pi.WebResourceError err) =>
-        widget.onWebResourceError!(
-          WebResourceError(
-            description: err.description,
-            errorCode: err.errorCode,
-            domain: err.domain,
-            errorType: WebResourceErrorType.values.singleWhere(
-              (value) => value.toString() == err.errorType.toString(),
-            ),
-            failingUrl: err.failingUrl,
+    onWebResourceError = (err) {
+      widget.onWebResourceError?.call(
+        WebResourceError(
+          description: err.description,
+          errorCode: err.errorCode,
+          domain: err.domain,
+          errorType: WebResourceErrorType.values.singleWhere(
+                (value) => value.toString() == err.errorType.toString(),
           ),
-        );
+          failingUrl: err.failingUrl,
+        ),
+      );
+    };
 
-    FutureOr<wf.NavigationDecision> navigationDelegate(
-      wf.NavigationRequest request,
-    ) async {
+    navigationDelegate = (request) async {
       if (widget.navigationDelegate == null) {
         webViewXController.value =
             webViewXController.value.copyWith(source: request.url);
-        return wf.NavigationDecision.navigate;
+        return iawf.NavigationDecision.navigate;
       }
 
       final delegate = await widget.navigationDelegate!.call(
         NavigationRequest(
           content: NavigationContent(
-              request.url, webViewXController.value.sourceType),
+            request.url,
+            webViewXController.value.sourceType,
+          ),
           isForMainFrame: request.isForMainFrame,
         ),
       );
@@ -201,25 +203,25 @@ class _WebViewXState extends State<WebViewX> {
           webViewXController.value = webViewXController.value.copyWith(
             source: request.url,
           );
-          return wf.NavigationDecision.navigate;
+          return iawf.NavigationDecision.navigate;
         case NavigationDecision.prevent:
-          return wf.NavigationDecision.prevent;
+          return iawf.NavigationDecision.prevent;
       }
-    }
+    };
 
-    void onWebViewCreated(wf.WebViewController webViewController) {
+    void onWebViewCreated(iawf.WebViewController webViewController) {
       originalWebViewController = webViewController;
 
       webViewXController.connector = originalWebViewController;
       // Calls onWebViewCreated to pass the refference upstream
       if (widget.onWebViewCreated != null) {
-        widget.onWebViewCreated!(webViewXController);
+        widget.onWebViewCreated?.call(webViewXController);
       }
     }
 
     final javascriptChannels = widget.dartCallBacks
         .map(
-          (cb) => wf.JavascriptChannel(
+          (cb) => iawf.JavascriptChannel(
             name: cb.name,
             onMessageReceived: (msg) => cb.callBack(msg.message),
           ),
@@ -231,7 +233,7 @@ class _WebViewXState extends State<WebViewX> {
       height: widget.height,
       child: IgnorePointer(
         ignoring: _ignoreAllGestures,
-        child: wf.WebView(
+        child: iawf.WebView(
           key: widget.key,
           initialUrl: _initialContent(),
           javascriptMode: javascriptMode,
@@ -256,7 +258,7 @@ class _WebViewXState extends State<WebViewX> {
   // Returns initial data
   String? _initialContent() {
     if (widget.initialSourceType == SourceType.html) {
-      return HtmlUtils.preprocessSource(
+      return HtmlUtils().preprocessSource(
         widget.initialContent,
         jsContent: widget.jsContent,
         encodeHtml: true,
@@ -279,7 +281,7 @@ class _WebViewXState extends State<WebViewX> {
   // Prepares the source depending if it is HTML or URL
   String _prepareContent(WebViewContent model) {
     if (model.sourceType == SourceType.html) {
-      return HtmlUtils.preprocessSource(
+      return HtmlUtils().preprocessSource(
         model.source,
         jsContent: widget.jsContent,
 

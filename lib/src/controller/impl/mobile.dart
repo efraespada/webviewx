@@ -2,19 +2,16 @@ import 'dart:async' show Future;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:webview_flutter/webview_flutter.dart' as wf;
-import 'package:webviewx/src/utils/html_utils.dart';
-import 'package:webviewx/src/utils/source_type.dart';
-import 'package:webviewx/src/utils/utils.dart';
-
+import 'package:iamport_webview_flutter/iamport_webview_flutter.dart' as iawf;
 import 'package:webviewx/src/controller/interface.dart' as i;
+import 'package:webviewx/src/utils/utils.dart';
 
 /// Mobile implementation
 class WebViewXController extends ChangeNotifier
-    implements i.WebViewXController<wf.WebViewController> {
+    implements i.WebViewXController<iawf.WebViewController> {
   /// Webview controller connector
   @override
-  late wf.WebViewController connector;
+  late iawf.WebViewController connector;
 
   /// Boolean value notifier used to toggle ignoring gestures on the webview
   final ValueNotifier<bool> _ignoreAllGesturesNotifier;
@@ -80,10 +77,10 @@ class WebViewXController extends ChangeNotifier
     bool fromAssets = false,
   }) async {
     if (fromAssets) {
-      final _content = await rootBundle.loadString(content);
+      final mContent = await rootBundle.loadString(content);
 
       value = WebViewContent(
-        source: _content,
+        source: mContent,
         sourceType: sourceType,
         headers: headers,
       );
@@ -122,14 +119,14 @@ class WebViewXController extends ChangeNotifier
     // This basically will transform a "raw" call (evaluateJavascript)
     // into a little bit more "typed" call, that is - calling a method.
     final result = await connector.evaluateJavascript(
-      HtmlUtils.buildJsFunction(name, params),
+      HtmlUtils().buildJsFunction(name, params),
     );
 
     // (MOBILE ONLY) Unquotes response if necessary
     //
     // In the mobile version responses from Js to Dart come wrapped in single quotes (')
     // The web works fine because it is already into it's native environment
-    return HtmlUtils.unQuoteJsResponseIfNeeded(result);
+    return HtmlUtils().unQuoteJsResponseIfNeeded(result);
   }
 
   /// This function allows you to evaluate 'raw' javascript (e.g: 2+2)
@@ -154,7 +151,7 @@ class WebViewXController extends ChangeNotifier
     var currentSourceType = value.sourceType;
 
     if (currentContent!.substring(0, 5) == 'data:') {
-      currentContent = HtmlUtils.dataUriToHtml(currentContent);
+      currentContent = HtmlUtils().dataUriToHtml(currentContent);
       currentSourceType = SourceType.html;
     }
 
@@ -205,13 +202,13 @@ class WebViewXController extends ChangeNotifier
 
   /// Get scroll position on X axis
   @override
-  Future<int> getScrollX() {
+  Future<int> getScrollX() async {
     return connector.getScrollX();
   }
 
   /// Get scroll position on Y axis
   @override
-  Future<int> getScrollY() {
+  Future<int> getScrollY() async {
     return connector.getScrollY();
   }
 

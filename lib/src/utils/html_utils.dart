@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:webviewx/src/utils/constants.dart';
@@ -16,17 +17,18 @@ enum EmbedPosition {
 /// HTML utils: wrappers, parsers, splitters etc.
 class HtmlUtils {
   /// Checks if the source looks like HTML
-  static bool isFullHtmlPage(String src) {
-    final _src = src.trim().toLowerCase();
-    return _src.startsWith(RegExp('<!DOCTYPE html>', caseSensitive: false)) &&
+  bool isFullHtmlPage(String src) {
+    final srcLowerCase = src.trim().toLowerCase();
+    return srcLowerCase
+            .startsWith(RegExp('<!DOCTYPE html>', caseSensitive: false)) &&
         // I didn't forget the closing bracket here.
         // Html opening tag may also have some random attributes.
-        _src.contains(RegExp('<html', caseSensitive: false)) &&
-        _src.contains(RegExp('</html>', caseSensitive: false));
+        srcLowerCase.contains(RegExp('<html', caseSensitive: false)) &&
+        srcLowerCase.contains(RegExp('</html>', caseSensitive: false));
   }
 
   /// Wraps markup in HTML tags
-  static String wrapHtml(String src, String? iframeId) {
+  String wrapHtml(String src, String? iframeId) {
     return '''
     <!DOCTYPE html>
     <html lang="en">
@@ -47,21 +49,21 @@ class HtmlUtils {
   /// Depending on the params passed to it, this function
   /// embeds ("burns") javascript functions inside the HTML source, wraps it
   /// and/or URI-encodes it.
-  static String preprocessSource(
+  String preprocessSource(
     String src, {
     Set<EmbeddedJsContent> jsContent = const {},
     bool forWeb = false,
     bool encodeHtml = false,
     String? windowDisambiguator,
   }) {
-    var _src = src;
+    var mSrc = src;
 
-    if (!isFullHtmlPage(_src)) {
-      _src = wrapHtml(_src, windowDisambiguator);
+    if (!isFullHtmlPage(mSrc)) {
+      mSrc = wrapHtml(mSrc, windowDisambiguator);
     }
 
     if (forWeb) {
-      _src = embedWebIframeJsConnector(_src, windowDisambiguator!);
+      mSrc = embedWebIframeJsConnector(mSrc, windowDisambiguator!);
     }
 
     if (jsContent.isNotEmpty) {
@@ -77,18 +79,18 @@ class HtmlUtils {
           }
         }
       }
-      _src = embedJsInHtmlSource(_src, jsContentStrings);
+      mSrc = embedJsInHtmlSource(mSrc, jsContentStrings);
     }
 
     if (encodeHtml) {
-      _src = encodeHtmlToURI(_src);
+      mSrc = encodeHtmlToURI(mSrc);
     }
 
-    return _src;
+    return mSrc;
   }
 
   /// Encodes HTML to URI
-  static String encodeHtmlToURI(String src) {
+  String encodeHtmlToURI(String src) {
     return Uri.dataFromString(
       src,
       mimeType: 'text/html',
@@ -97,20 +99,22 @@ class HtmlUtils {
   }
 
   /// Turns URI-encoded HTML "data:" to pure human-readable HTML
-  static String dataUriToHtml(String data) {
+  String dataUriToHtml(String data) {
     return Uri.decodeFull(data).replaceFirst(RegExp('^data:.+,'), '');
   }
 
   /// Retrieves basename from a string path
-  static String getPathBaseName(String path) {
+  String getPathBaseName(String path) {
     return p.basename(path);
   }
 
   /// Encodes an image (as a list of bytes) to a base64 embedded HTML image
   ///
   /// Pretty raw, I know, but it works
-  static String encodeImageAsEmbeddedBase64(
-      String fileName, Uint8List imageBytes) {
+  String encodeImageAsEmbeddedBase64(
+    String fileName,
+    Uint8List imageBytes,
+  ) {
     const imageWidth = '100%';
     final base64Image = '<img width="$imageWidth" src="data:image/png;base64, '
         '${base64Encode(imageBytes)}" data-filename="$fileName">';
@@ -118,7 +122,7 @@ class HtmlUtils {
   }
 
   /// Wraps an image link with "img" tags
-  static String wrapImageLinkWithImgTag(String imageLink) {
+  String wrapImageLinkWithImgTag(String imageLink) {
     return '<img src="$imageLink">';
   }
 
@@ -126,7 +130,7 @@ class HtmlUtils {
   ///
   /// Example call: buildJsFunction('say', ["hello", "world"]);
   /// Result: say('hello', 'world')
-  static String buildJsFunction(String name, List<dynamic> params) {
+  String buildJsFunction(String name, List<dynamic> params) {
     final args = StringBuffer();
 
     if (params.isEmpty) {
@@ -145,13 +149,13 @@ class HtmlUtils {
   }
 
   /// Adds single quotes to the param
-  static String addSingleQuotes(String data) {
+  String addSingleQuotes(String data) {
     return "'$data'";
   }
 
   /// Embeds js in the HTML source at the specified position
   /// This is just a helper function for the generic [embedInHtmlSource] function
-  static String embedJsInHtmlSource(
+  String embedJsInHtmlSource(
     String source,
     Set<String> jsContents, {
     EmbedPosition position = EmbedPosition.aboveBodyCloseTag,
@@ -183,8 +187,11 @@ class HtmlUtils {
   /// The way it works is that it will take the whole `htmlTag`, including
   /// it's attributes (if any), and it will append `toInject` to it, such as the original
   /// `htmlTag` will now have `toInject` as it's first child (by child we mean HTML DOM child)
-  static String injectAsChildOf(
-      String htmlTag, String source, String toInject) {
+  String injectAsChildOf(
+    String htmlTag,
+    String source,
+    String toInject,
+  ) {
     final replaceSpot = '<$htmlTag([^>]*)>';
     return source.replaceFirstMapped(RegExp(replaceSpot, caseSensitive: false),
         (match) {
@@ -193,7 +200,7 @@ class HtmlUtils {
   }
 
   /// Generic function to embed anything inside HTML source, at the specified position.
-  static String embedInHtmlSource({
+  String embedInHtmlSource({
     required String source,
     required String whatToEmbed,
     required EmbedPosition position,
@@ -230,12 +237,14 @@ class HtmlUtils {
   /// the last one of them. This is because the last one that renders on the screen
   /// will also call latter iframes' "connect_js_to_flutter" callbacks, thus messing up
   /// others' functions and, well, everything.
-  static String embedWebIframeJsConnector(
-      String source, String windowDisambiguator) {
+  String embedWebIframeJsConnector(
+    String source,
+    String windowDisambiguator,
+  ) {
     return embedJsInHtmlSource(
       source,
       {
-        'parent.$jsToDartConnectorFN$windowDisambiguator && parent.$jsToDartConnectorFN$windowDisambiguator(window)'
+        'parent.$jsToDartConnectorFN$windowDisambiguator && parent.$jsToDartConnectorFN$windowDisambiguator(window)',
       },
       position: EmbedPosition.aboveHeadCloseTag,
     );
@@ -245,13 +254,13 @@ class HtmlUtils {
   /// when using multiple iframes in the same window.
   ///
   /// The '-' replace had to be done in order to follow the javascript syntax notation.
-  static String buildIframeViewType() {
+  String buildIframeViewType() {
     final iframeId = '_${const Uuid().v4().replaceAll('-', '_')}';
     return '_iframe$iframeId';
   }
 
   /// Removes surrounding quotes around a string, if any
-  static String unQuoteJsResponseIfNeeded(String rawJsResponse) {
+  String unQuoteJsResponseIfNeeded(String rawJsResponse) {
     if ((rawJsResponse.startsWith('"') && rawJsResponse.endsWith('"')) ||
         (rawJsResponse.startsWith("'") && rawJsResponse.endsWith("'"))) {
       return rawJsResponse.substring(1, rawJsResponse.length - 1);
@@ -260,8 +269,10 @@ class HtmlUtils {
   }
 
   /// Embeds click listeners inside the page and calls Dart callback when triggered
-  static String embedClickListenersInPageSource(
-      String pageUrl, String pageSource) {
+  String embedClickListenersInPageSource(
+    String pageUrl,
+    String pageSource,
+  ) {
     return embedInHtmlSource(
       source: pageSource,
       whatToEmbed: '''

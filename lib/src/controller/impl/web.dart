@@ -4,12 +4,10 @@ import 'dart:js' as js;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:webviewx/src/controller/interface.dart' as i;
 import 'package:webviewx/src/utils/logger.dart';
-import 'package:webviewx/src/utils/source_type.dart';
 import 'package:webviewx/src/utils/utils.dart';
 import 'package:webviewx/src/utils/web_history.dart';
-
-import 'package:webviewx/src/controller/interface.dart' as i;
 
 /// Web implementation
 class WebViewXController extends ChangeNotifier
@@ -89,10 +87,10 @@ class WebViewXController extends ChangeNotifier
     WebViewContent newContent;
 
     if (fromAssets) {
-      final _contentFromAssets = await rootBundle.loadString(content);
+      final contentFromAssets = await rootBundle.loadString(content);
 
       newContent = WebViewContent(
-        source: _contentFromAssets,
+        source: contentFromAssets,
         sourceType: sourceType,
         headers: headers,
         webPostRequestBody: body,
@@ -170,7 +168,7 @@ class WebViewXController extends ChangeNotifier
   @override
   Future<void> goBack() async {
     _history.moveBack();
-    log('Current history: ${_history.toString()}');
+    log('Current history: $_history');
 
     _notifyWidget();
   }
@@ -186,7 +184,7 @@ class WebViewXController extends ChangeNotifier
   @override
   Future<void> goForward() async {
     _history.moveForward();
-    log('Current history: ${_history.toString()}');
+    log('Current history: $_history');
 
     _notifyWidget();
   }

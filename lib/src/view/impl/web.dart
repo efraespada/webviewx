@@ -3,17 +3,15 @@ import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:js' as js;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
-
-import 'package:webviewx/src/utils/dart_ui_fix.dart' as ui;
-import 'package:webviewx/src/utils/constants.dart';
-import 'package:webviewx/src/utils/logger.dart';
-import 'package:webviewx/src/utils/utils.dart';
 import 'package:webviewx/src/controller/impl/web.dart';
 import 'package:webviewx/src/controller/interface.dart' as ctrl_interface;
+import 'package:webviewx/src/utils/constants.dart';
+import 'package:webviewx/src/utils/dart_ui_fix.dart' as ui;
+import 'package:webviewx/src/utils/logger.dart';
+import 'package:webviewx/src/utils/utils.dart';
 import 'package:webviewx/src/view/interface.dart' as view_interface;
 
 /// Web implementation
@@ -112,7 +110,7 @@ class WebViewX extends StatefulWidget implements view_interface.WebViewX {
 
   /// Constructor
   const WebViewX({
-    Key? key,
+    super.key,
     this.initialContent = 'about:blank',
     this.initialSourceType = SourceType.url,
     this.userAgent,
@@ -131,13 +129,13 @@ class WebViewX extends StatefulWidget implements view_interface.WebViewX {
     this.onWebResourceError,
     this.webSpecificParams = const WebSpecificParams(),
     this.mobileSpecificParams = const MobileSpecificParams(),
-  }) : super(key: key);
+  });
 
   @override
-  _WebViewXState createState() => _WebViewXState();
+  WebViewXState createState() => WebViewXState();
 }
 
-class _WebViewXState extends State<WebViewX> {
+class WebViewXState extends State<WebViewX> {
   late html.IFrameElement iframe;
   late String iframeViewType;
   late StreamSubscription iframeOnLoadSubscription;
@@ -219,7 +217,7 @@ class _WebViewXState extends State<WebViewX> {
 
       then?.call();
 
-      /* 
+      /*
       // Registering the same events as we already do inside
       // HtmlUtils.embedClickListenersInPageSource(), but in Dart.
       // So far it seems to be working, but needs more testing.
@@ -339,9 +337,7 @@ class _WebViewXState extends State<WebViewX> {
   }
 
   // This creates a unique String to be used as the view type of the HtmlElementView
-  String _createViewType() {
-    return HtmlUtils.buildIframeViewType();
-  }
+  String _createViewType() => HtmlUtils().buildIframeViewType();
 
   html.IFrameElement _createIFrame() {
     final iframeElement = html.IFrameElement()
@@ -417,17 +413,16 @@ class _WebViewXState extends State<WebViewX> {
 
     switch (model.sourceType) {
       case SourceType.html:
-        iframe.srcdoc = HtmlUtils.preprocessSource(
+        iframe.srcdoc = HtmlUtils().preprocessSource(
           source,
           jsContent: widget.jsContent,
           windowDisambiguator: iframeViewType,
           forWeb: true,
         );
-        break;
       case SourceType.url:
       case SourceType.urlBypass:
         if (source == 'about:blank') {
-          iframe.srcdoc = HtmlUtils.preprocessSource(
+          iframe.srcdoc = HtmlUtils().preprocessSource(
             '<br>',
             jsContent: widget.jsContent,
             windowDisambiguator: iframeViewType,
@@ -450,7 +445,6 @@ class _WebViewXState extends State<WebViewX> {
             headers: model.headers,
           );
         }
-        break;
     }
   }
 
@@ -460,7 +454,9 @@ class _WebViewXState extends State<WebViewX> {
     _debugLog(dartObj.toString());
 
     if (!await _checkNavigationAllowed(
-        href, webViewXController.value.sourceType)) {
+      href,
+      webViewXController.value.sourceType,
+    )) {
       _debugLog('Navigation not allowed for source:\n$href\n');
       return;
     }
@@ -479,14 +475,16 @@ class _WebViewXState extends State<WebViewX> {
 
     final bodyMap = body == null
         ? null
-        : (<String, String>{}..addEntries(
-            (body as List<dynamic>).map(
-              (e) => MapEntry<String, String>(
-                e[0].toString(),
-                e[1].toString(),
+        : (
+            <String, String>{}..addEntries(
+                (body as List<dynamic>).map(
+                  (e) => MapEntry<String, String>(
+                    e[0].toString(),
+                    e[1].toString(),
+                  ),
+                ),
               ),
-            ),
-          ));
+          );
 
     _tryFetchRemoteSource(
       method: method,
@@ -510,22 +508,26 @@ class _WebViewXState extends State<WebViewX> {
     ).then((source) {
       _setPageSourceAfterBypass(url, source);
 
-      webViewXController.webRegisterNewHistoryEntry(WebViewContent(
-        source: url,
-        sourceType: SourceType.urlBypass,
-        headers: headers,
-        webPostRequestBody: body,
-      ));
+      webViewXController.webRegisterNewHistoryEntry(
+        WebViewContent(
+          source: url,
+          sourceType: SourceType.urlBypass,
+          headers: headers,
+          webPostRequestBody: body,
+        ),
+      );
 
       _debugLog('Got a new history entry: $url\n');
     }).catchError((e) {
-      widget.onWebResourceError?.call(WebResourceError(
-        description: 'Failed to fetch the page at $url\nError:\n$e\n',
-        errorCode: WebResourceErrorType.connect.index,
-        errorType: WebResourceErrorType.connect,
-        domain: Uri.parse(url).authority,
-        failingUrl: url,
-      ));
+      widget.onWebResourceError?.call(
+        WebResourceError(
+          description: 'Failed to fetch the page at $url\nError:\n$e\n',
+          errorCode: WebResourceErrorType.connect.index,
+          errorType: WebResourceErrorType.connect,
+          domain: Uri.parse(url).authority,
+          failingUrl: url,
+        ),
+      );
       _debugLog('Failed to fetch the page at $url\nError:\n$e\n');
     });
   }
@@ -581,12 +583,12 @@ class _WebViewXState extends State<WebViewX> {
   }
 
   void _setPageSourceAfterBypass(String pageUrl, String pageSource) {
-    final replacedPageSource = HtmlUtils.embedClickListenersInPageSource(
+    final replacedPageSource = HtmlUtils().embedClickListenersInPageSource(
       pageUrl,
       pageSource,
     );
 
-    iframe.srcdoc = HtmlUtils.preprocessSource(
+    iframe.srcdoc = HtmlUtils().preprocessSource(
       replacedPageSource,
       jsContent: widget.jsContent,
       windowDisambiguator: iframeViewType,
