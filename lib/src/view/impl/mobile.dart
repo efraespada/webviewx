@@ -165,14 +165,20 @@ class WebViewXState extends State<WebViewX> {
         : iawf.AutoMediaPlaybackPolicy.require_user_action_for_all_media_types;
 
     onWebResourceError = (err) {
+      WebResourceErrorType? errorType;
+      try {
+        errorType = WebResourceErrorType.values.singleWhere(
+              (value) => value.toString() == err.errorType.toString(),
+        );
+      } catch (error) {
+        errorType = null;
+      }
       widget.onWebResourceError?.call(
         WebResourceError(
           description: err.description,
           errorCode: err.errorCode,
           domain: err.domain,
-          errorType: WebResourceErrorType.values.singleWhere(
-                (value) => value.toString() == err.errorType.toString(),
-          ),
+          errorType: errorType,
           failingUrl: err.failingUrl,
         ),
       );

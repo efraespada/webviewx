@@ -346,6 +346,8 @@ class WebViewXState extends State<WebViewX> {
       ..style.border = 'none'
       ..width = widget.width.toInt().toString()
       ..height = widget.height.toInt().toString()
+      ..style.width = "100%"
+      ..style.height = "100%"
       ..allowFullscreen = widget.webSpecificParams.webAllowFullscreenContent;
 
     widget.webSpecificParams.additionalSandboxOptions.forEach(

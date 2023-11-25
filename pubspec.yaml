@@ -12,7 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
   iamport_webview_flutter: ^3.0.6
-  http: 0.13.3
+  http: 0.13.5
   path: ^1.8.3
   pointer_interceptor: ^0.9.3+7
   uuid: ^4.2.1
